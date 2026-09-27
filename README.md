@@ -25,6 +25,11 @@ running timeline for each patient.
    - **Yes:** choose their last report. The new scan is added and the new report covers every visit.
    - **No:** type the patient's name.
 5. The report opens in your browser and is saved in the `reports` folder next to the `.bat`.
+   If Windows won't allow writing there, it goes to `InBody Reports` in your user folder instead,
+   and the pop-up shows exactly where.
+
+The Python setup lives in `%LOCALAPPDATA%\InBody\venv`, not in the program folder, so the program can
+sit on any drive, including protected or synced folders. To reset it, delete that folder.
 
 You can also drag PDFs onto `InBody Report.bat`, optionally together with the patient's last report.
 If Claude has to guess at a value, a pop-up lists it so you can check it against the sheet.

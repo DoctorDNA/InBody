@@ -5,6 +5,10 @@ rem Double-click to pick a scan, or drag InBody PDFs (and optionally the last re
 cd /d "%~dp0"
 chcp 65001 >nul
 set PYTHONIOENCODING=utf-8
+rem Nothing is written into this folder except reports, so it can live on any drive.
+set PYTHONDONTWRITEBYTECODE=1
+set "VENV=%LOCALAPPDATA%\InBody\venv"
+set "VPY=%VENV%\Scripts\python.exe"
 
 rem ---- find Python -----------------------------------------------------------
 set "PY="
@@ -21,20 +25,20 @@ if not defined PY (
     exit /b 1
 )
 
-rem ---- first run: private environment + packages -----------------------------
-if not exist ".venv\setup-done.txt" (
+rem ---- first run: private environment + packages (in %LOCALAPPDATA%\InBody) ----
+if not exist "%VENV%\setup-done.txt" (
     echo First-time setup, this takes a minute...
-    if not exist ".venv\Scripts\python.exe" (
-        %PY% -m venv .venv || goto :fail
+    if not exist "%VPY%" (
+        %PY% -m venv "%VENV%" || goto :fail
     )
-    ".venv\Scripts\python.exe" -m pip install --quiet --upgrade pip
-    ".venv\Scripts\python.exe" -m pip install --quiet -r requirements.txt || goto :fail
-    echo ok> ".venv\setup-done.txt"
+    "%VPY%" -m pip install --quiet --upgrade pip
+    "%VPY%" -m pip install --quiet -r requirements.txt || goto :fail
+    echo ok> "%VENV%\setup-done.txt"
     echo Setup complete.
     echo.
 )
 
-".venv\Scripts\python.exe" -m inbody.launcher %*
+"%VPY%" -m inbody.launcher %*
 if errorlevel 1 goto :fail
 exit /b 0
 

@@ -72,3 +72,16 @@ def test_patient_mismatch_is_reported(fake_tk, tmp_path):
     other.write_text(json.dumps({**json.loads((EX / "sample_new_scan.json").read_text()), "patient_id": "X-9"}))
     assert launcher.main([str(other), str(EX / "sample_report.html")]) == 1
     assert shown[-1][0] == "error" and "X-9" in shown[-1][1]
+
+
+def test_reports_fall_back_when_program_folder_is_read_only(fake_tk, tmp_path, monkeypatch):
+    from inbody import launcher
+    answers, shown, opened = fake_tk
+    home = tmp_path / "home"
+    monkeypatch.setattr(Path, "home", lambda: home)
+    real = launcher._writable
+    monkeypatch.setattr(launcher, "_writable", lambda f: f.parent != tmp_path and real(f))
+    answers.update(yesno=False, string="Sample Patient")
+    assert launcher.main([str(EX / "sample_new_scan.json")]) == 0
+    assert list((home / "InBody Reports").glob("*.html"))
+    assert str(home / "InBody Reports") in shown[-1][1]

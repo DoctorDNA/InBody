@@ -47,11 +47,11 @@ def _write_outputs(timeline, out_html, out_json, ai, model):
     return out_html
 
 
-def _default_out(timeline):
+def _default_out(timeline, out_dir="reports"):
     p = timeline.get("patient", {})
     slug = (p.get("name") or p.get("patient_id") or "patient").strip().lower().replace(" ", "_")
     last = timeline["scans"][-1]["test_date"]
-    return Path("reports") / f"inbody_{slug}_{last}.html"
+    return Path(out_dir) / f"inbody_{slug}_{last}.html"
 
 
 def cmd_analyze(args):
@@ -79,7 +79,7 @@ def cmd_analyze(args):
     _apply_overrides(timeline, args)
     if not timeline["scans"]:
         sys.exit("No scans to analyze.")
-    out_html = Path(args.output) if args.output else _default_out(timeline)
+    out_html = Path(args.output) if args.output else _default_out(timeline, args.out_dir)
     out_json = Path(args.timeline) if args.timeline else out_html.with_suffix(".json")
     return _write_outputs(timeline, out_html, out_json, args.ai_summary, args.model), warnings
 
@@ -87,7 +87,7 @@ def cmd_analyze(args):
 def cmd_render(args):
     timeline = tl.load_history(args.source)
     _apply_overrides(timeline, args)
-    out_html = Path(args.output) if args.output else _default_out(timeline)
+    out_html = Path(args.output) if args.output else _default_out(timeline, args.out_dir)
     return _write_outputs(timeline, out_html, None, args.ai_summary, args.model), []
 
 
@@ -113,7 +113,8 @@ def _apply_overrides(timeline, args):
 
 
 def _common(sp):
-    sp.add_argument("-o", "--output", help="Output HTML path (default: reports/inbody_<patient>_<date>.html)")
+    sp.add_argument("-o", "--output", help="Output HTML path (default: <out-dir>/inbody_<patient>_<date>.html)")
+    sp.add_argument("--out-dir", default="reports", help="Folder for reports when -o is not given (default: reports)")
     sp.add_argument("--name", help="Patient name (InBody sheets often only show an ID)")
     sp.add_argument("--patient-id", dest="patient_id")
     sp.add_argument("--sex", choices=["Male", "Female"])

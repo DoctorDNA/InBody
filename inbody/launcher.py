@@ -20,6 +20,25 @@ def _key_file():
     return Path(base) / "InBody" / "api_key.txt"
 
 
+def _writable(folder):
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        probe = folder / ".write-test"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def reports_folder():
+    """'reports' next to the program if Windows allows writing there, else one in the user's home folder."""
+    for folder in (Path.cwd() / "reports", Path.home() / "InBody Reports"):
+        if _writable(folder):
+            return folder
+    raise OSError("No writable folder for reports")
+
+
 def _ensure_api_key(ask):
     if os.environ.get("ANTHROPIC_API_KEY"):
         return True
@@ -51,8 +70,7 @@ def main(argv=None):
     def ask(title, prompt, show=None):
         return simpledialog.askstring(title, prompt, parent=root, show=show)
 
-    reports_dir = Path.cwd() / "reports"
-    reports_dir.mkdir(exist_ok=True)
+    reports_dir = reports_folder()
 
     dropped = [Path(a) for a in (argv if argv is not None else sys.argv[1:])]
     history = [p for p in dropped if p.suffix.lower() in HISTORY_TYPES]
@@ -89,7 +107,7 @@ def main(argv=None):
         messagebox.showinfo("InBody", "An API key is needed to read the scan.", parent=root)
         return 1
 
-    argv = ["analyze", *map(str, scans)]
+    argv = ["analyze", *map(str, scans), "--out-dir", str(reports_dir)]
     for h in history:
         argv += ["--history", str(h)]
     if name:
