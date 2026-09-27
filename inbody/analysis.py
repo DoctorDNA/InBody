@@ -73,6 +73,13 @@ def classify(key, d):
     return "good" if d * direction > 0 else "bad"
 
 
+def _range_high(text):
+    if not text:
+        return None
+    nums = re.findall(r"\d+(?:\.\d+)?", text.replace(",", ""))
+    return float(nums[-1]) if len(nums) >= 2 else None
+
+
 def _range_low(text):
     if not text:
         return None
@@ -164,15 +171,41 @@ class Analysis:
         return "improving" if last > 0 else "declining"
 
     def legs_lagging(self):
+        """'below' if a leg is under 100% of ideal, 'behind_arms' if legs trail the arms by >5 points, else None."""
         for seg in ("right_leg", "left_leg"):
             pct = self.seg("segmental_lean", seg).get("pct")
             if pct is not None and pct < 100:
-                return True
+                return "below"
         arms = [self.seg("segmental_lean", s).get("pct") for s in ("right_arm", "left_arm")]
         legs = [self.seg("segmental_lean", s).get("pct") for s in ("right_leg", "left_leg")]
-        if all(x is not None for x in arms + legs):
-            return sum(legs) / 2 < sum(arms) / 2 - 5
-        return False
+        if all(x is not None for x in arms + legs) and sum(legs) / 2 < sum(arms) / 2 - 5:
+            return "behind_arms"
+        return None
+
+    def limb_pcts(self):
+        arms = [self.seg("segmental_lean", s).get("pct") for s in ("right_arm", "left_arm")]
+        legs = [self.seg("segmental_lean", s).get("pct") for s in ("right_leg", "left_leg")]
+        return sum(arms) / 2, sum(legs) / 2
+
+    def trunk_fat_share(self, scan):
+        """Trunk fat as a share of total segmental fat (0–1), or None."""
+        fat = scan.get("segmental_fat") or {}
+        lbs = [(fat.get(k) or {}).get("lb") for k, _ in SEGMENTS]
+        if any(x is None for x in lbs) or not sum(lbs):
+            return None
+        return (fat.get("trunk") or {}).get("lb") / sum(lbs)
+
+    def limb_lean_share(self, scan):
+        """Arms + legs lean as a share of total segmental lean (0–1), or None."""
+        lean = scan.get("segmental_lean") or {}
+        lbs = {k: (lean.get(k) or {}).get("lb") for k, _ in SEGMENTS}
+        if any(x is None for x in lbs.values()) or not sum(lbs.values()):
+            return None
+        return (sum(lbs.values()) - lbs["trunk"]) / sum(lbs.values())
+
+    def fat_rising(self):
+        df, idf = self.d("bfm"), self.interval("bfm")
+        return (df is not None and df >= 1.0) or (idf is not None and idf >= 1.0)
 
     def recomposition(self):
         dw, df, dm = self.d("weight"), self.d("bfm"), self.d("smm")
@@ -264,7 +297,7 @@ class Analysis:
         ds = self.d("inbody_score")
         if ds is not None and ds >= 1:
             wins.append(("InBody Score improved",
-                         f"InBody Score rose {int(ds)} points ({fmt(self.v('inbody_score', self.base), 0)} → "
+                         f"InBody Score rose {int(ds)} point{'s' if ds >= 2 else ''} ({fmt(self.v('inbody_score', self.base), 0)} → "
                          f"{fmt(self.v('inbody_score'), 0)}), driven by {'muscle gain and fat loss' if (dm or 0) > 0 and (df or 0) < 0 else 'the changes in muscle-fat balance'}."))
         dv = self.d("vfl")
         if dv is not None and dv <= -1:
@@ -303,7 +336,88 @@ class Analysis:
                          f"BMR increased {fmt(db, 0)} kcal/day ({fmt(self.v('bmr', self.base), 0)} → "
                          f"{fmt(self.v('bmr'), 0)}), tracking the new muscle — more calories burned at rest."))
 
+        ffmi = self.v("ffmi")
+        if ffmi is not None and ffmi >= t["ffmi_good"]:
+            wins.append(("Well-muscled frame",
+                         f"FFMI (fat-free mass relative to height) is {fmt(ffmi)} kg/m² — at or above the "
+                         f"{t['ffmi_good']} kg/m² well-muscled mark for {self.sex.lower()}s."))
+
         # ---- watch
+        if self.fat_rising():
+            base_f, cur_f = self.v("bfm", self.base), self.v("bfm")
+            df, idf = self.d("bfm"), self.interval("bfm")
+            parts = []
+            if df is not None and df >= 1.0:
+                parts.append(f"Body fat mass is up {fmt(df)} lb from baseline ({fmt(base_f)} → {fmt(cur_f)} lb)")
+            else:
+                parts.append(f"Body fat mass rose {fmt(idf)} lb since the last scan "
+                             f"({fmt(self.v('bfm', self.prev))} → {fmt(cur_f)} lb)")
+            p0, p1 = self.v("pbf", self.base), self.v("pbf")
+            if p0 is not None and p1 is not None:
+                parts[-1] += f" and body fat from {fmt(p0)}% to {fmt(p1)}%"
+            tr0 = self.seg("segmental_fat", "trunk", self.base).get("lb")
+            tr1 = self.seg("segmental_fat", "trunk").get("lb")
+            gain = df if df is not None and df >= 1.0 else None
+            if tr0 is not None and tr1 is not None and tr1 > tr0:
+                where = f"Trunk fat went from {fmt(tr0)} to {fmt(tr1)} lb"
+                if gain and gain > 0:
+                    share = min(100, round((tr1 - tr0) / gain * 100))
+                    where += f", about {share}% of the gain"
+                parts.append(where)
+            dv = self.d("vfl")
+            if dv is not None and dv >= 1:
+                parts.append(f"Visceral Fat Level ticked up to {fmt(self.v('vfl'), 0)}")
+            healthy = p1 is not None and p1 <= t["pbf_watch"]
+            parts.append("Still within the healthy range, so this is an early opportunity: keep the muscle and "
+                         "trim the recent fat with Zone 2 cardio and protein-forward, lower refined-carb eating"
+                         if healthy else
+                         "Zone 2 cardio, a protein-forward diet low in refined carbohydrates, and a longer "
+                         "fasting window are the main levers")
+            if idf is not None and idf <= -0.5:
+                parts.insert(1, f"It came down {fmt(abs(idf))} lb since the last scan, so it's moving the right way")
+                title = "Body fat still above baseline"
+            else:
+                title = "Body fat trending up"
+            watch.append((title, ". ".join(parts) + "."))
+        else:
+            sh0, sh1 = self.trunk_fat_share(self.base), self.trunk_fat_share(self.latest)
+            if self.n > 1 and sh0 is not None and sh1 is not None and sh1 - sh0 >= 0.03:
+                watch.append(("Fat shifting toward the trunk",
+                              f"Trunk fat now makes up {sh1 * 100:.0f}% of segmental fat (from {sh0 * 100:.0f}% at "
+                              f"baseline), even though total fat isn't rising. Central fat carries more metabolic risk — "
+                              f"Zone 2 cardio is the main lever."))
+        ls0, ls1 = self.limb_lean_share(self.base), self.limb_lean_share(self.latest)
+        if self.n > 1 and ls0 is not None and ls1 is not None and ls0 - ls1 >= 0.015:
+            watch.append(("Lean mass shifting away from the limbs",
+                          f"Arms and legs now hold {ls1 * 100:.1f}% of segmental lean mass (from {ls0 * 100:.1f}%). "
+                          f"Limb muscle drives SMI and function — keep leg and arm work in every program."))
+        iw, days = self.interval("weight"), self.interval_days()
+        if iw is not None and days is not None and days <= 56 and abs(iw) >= 5:
+            itbw = self.interval("tbw")
+            water = (f", with total body water {signed(itbw)} lb ({fmt(self.v('tbw', self.prev))} → "
+                     f"{fmt(self.v('tbw'))} lb)") if itbw is not None else ""
+            watch.append(("Large weight change — verify test conditions",
+                          f"Weight changed {signed(iw)} lb in {days} days{water}. Swings this size over a few weeks are "
+                          f"often hydration, recent food or fluid, glycogen, or time of day rather than tissue. "
+                          f"Standardize the next scan before drawing firm conclusions."))
+        tbw, tbw_hi = self.v("tbw"), _range_high(self.latest.get("tbw_range"))
+        if tbw is not None and tbw_hi is not None and tbw > tbw_hi:
+            watch.append(("Total body water above normal range",
+                          f"Total body water is {fmt(tbw)} lb, above the normal range of {self.latest['tbw_range']} lb. "
+                          f"Usually hydration or scan conditions; with ECW/TBW at {fmt(self.v('ecw_tbw'), 3)}, "
+                          f"{'fluid retention is worth a look' if (self.v('ecw_tbw') or 0) > 0.380 else 'the water balance itself looks normal'}."))
+        smis = [x for x in self.series("smi") if x is not None]
+        ismi = self.interval("smi")
+        if smis and smis[-1] >= t["smi"] + 0.5 and (
+                (ismi is not None and ismi <= -0.3) or (len(smis) >= 3 and smis[-1] < smis[-2] < smis[-3])):
+            watch.append(("SMI declining",
+                          f"SMI is {fmt(smis[-1])} kg/m² — still above the {t['smi']} kg/m² threshold, but down "
+                          f"{'from ' + fmt(smis[-2]) if ismi is not None else 'across recent scans'}. "
+                          f"Keep limb-focused resistance training consistent."))
+        if ffmi is not None and ffmi < t["ffmi_ok"]:
+            watch.append(("FFMI below adequate",
+                          f"FFMI (fat-free mass relative to height) is {fmt(ffmi)} kg/m², below the {t['ffmi_ok']} kg/m² "
+                          f"adequate level for {self.sex.lower()}s. Resistance training and protein build this directly."))
         for pair, label in ((("right_arm", "left_arm"), "Arm"), (("right_leg", "left_leg"), "Leg")):
             r = self.seg("segmental_lean", pair[0]).get("lb")
             l = self.seg("segmental_lean", pair[1]).get("lb")
@@ -386,6 +500,12 @@ class Analysis:
             act.append(("Muscle lost with weight",
                         f"Weight fell and SMM dropped {fmt(abs(ism))} lb this interval — some of the loss is muscle. "
                         f"Prioritize protein and resistance training to protect it."))
+        ibmr = self.interval("bmr")
+        if ibmr is not None and ibmr <= -15 and ism is not None and ism <= -0.5:
+            act.append(("Metabolic rate falling with muscle",
+                        f"BMR dropped {fmt(abs(ibmr), 0)} kcal/day ({fmt(self.v('bmr', self.prev), 0)} → "
+                        f"{fmt(self.v('bmr'), 0)}) as SMM fell {fmt(abs(ism))} lb. Protect muscle with protein and "
+                        f"progressive resistance training so resting metabolism doesn't keep sliding."))
         vfl = self.v("vfl")
         if vfl is not None and vfl >= 10:
             act.append(("Visceral fat elevated",
@@ -437,9 +557,16 @@ class Analysis:
         else:
             ex.append("Resistance training: build the foundation with 2 full-body sessions per week using compound "
                       "movements (squat, deadlift, press, row), 3–5 sets of 8–12 reps, adding load progressively.")
-        if self.legs_lagging():
-            ex.append("Lower body: segmental data shows the legs lagging. Make every session leg-first — squats, "
-                      "Romanian deadlifts, lunges or split squats, and leg press — to bring both legs to at least 100% of ideal.")
+        lag = self.legs_lagging()
+        if lag == "below":
+            ex.append("Lower body: segmental data shows a leg below 100% of ideal. Make every session leg-first — "
+                      "squats, Romanian deadlifts, lunges or split squats, and leg press — to bring both legs to at "
+                      "least 100% of ideal.")
+        elif lag == "behind_arms":
+            arm_p, leg_p = self.limb_pcts()
+            ex.append(f"Lower body: both legs are above ideal, but they trail the arms ({leg_p:.0f}% vs {arm_p:.0f}% "
+                      f"of ideal). Give the legs equal priority — squats, Romanian deadlifts, lunges or split squats, "
+                      f"and leg press — to keep the lower body balanced with the upper body.")
         ex.append("VO₂ max intervals (e.g., 4 × 4 minutes hard with 3 minutes easy) can be added once the Zone 2 base is established.")
 
         protein = self.protein_g()
@@ -475,8 +602,10 @@ class Analysis:
             assess.append("body fat mass and percent")
         if vfl is not None and vfl > 6:
             assess.append(f"visceral fat progress toward ≤6 (currently {fmt(vfl, 0)})")
-        if self.legs_lagging():
+        if self.legs_lagging() == "below":
             assess.append("leg lean mass relative to 100% of ideal")
+        elif self.legs_lagging():
+            assess.append("leg lean mass relative to the arms")
         ipa = self.interval("phase_angle")
         follow = [f"Next InBody: {self.next_scan_text()}; then every 6–8 weeks. At that visit, assess "
                   + ", ".join(assess[:-1]) + (" and " if len(assess) > 1 else "") + assess[-1] + "."]
@@ -524,7 +653,9 @@ class Analysis:
         if self.n > 1:
             p2.append(f"Over {self.months_span()} months and {self.n} scans, body fat percentage went from "
                       f"{fmt(self.v('pbf', self.base))}% to {fmt(self.v('pbf'))}% and the Visceral Fat Level "
-                      f"(fat around the internal organs) from {fmt(self.v('vfl', self.base), 0)} to {fmt(self.v('vfl'), 0)}.")
+                      f"(fat around the internal organs) "
+                      + (f"held at {fmt(self.v('vfl'), 0)}." if self.v('vfl', self.base) == self.v('vfl') else
+                         f"went from {fmt(self.v('vfl', self.base), 0)} to {fmt(self.v('vfl'), 0)}."))
         else:
             p2.append(f"Body fat is {fmt(self.v('pbf'))}% and the Visceral Fat Level (fat around the internal organs) "
                       f"is {fmt(self.v('vfl'), 0)}, where 1–9 is low risk and the target is 6 or below.")
@@ -539,8 +670,21 @@ class Analysis:
                 status = ("below" if pa < self.t["pa_low"] else "above" if pa > self.t["pa_high"] else "within")
                 p2.append(f"Phase angle — a measure of cell health and integrity — is {fmt(pa)}°, {status} the normal "
                           f"range of {self.t['pa_low']}–{self.t['pa_high']}°.")
-        if self.legs_lagging():
-            p2.append("Segmental analysis shows the legs lagging relative to ideal, which is the clearest place to focus training.")
+        if self.n > 1 and self.fat_rising() and not self.recomposition():
+            idf = self.interval("bfm")
+            if idf is not None and idf <= -0.5:
+                p2.append(f"Body fat is still above where it started ({fmt(self.v('bfm', self.base))} → "
+                          f"{fmt(self.v('bfm'))} lb), but it came down {fmt(abs(idf))} lb since the last scan — "
+                          f"the right direction.")
+            else:
+                p2.append(f"The one trend worth attention is body fat drifting up ({fmt(self.v('bfm', self.base))} → "
+                          f"{fmt(self.v('bfm'))} lb), which is best addressed early while muscle is being maintained.")
+        if self.legs_lagging() == "below":
+            p2.append("Segmental analysis shows a leg below its ideal lean target, which is the clearest place to "
+                      "focus training.")
+        elif self.legs_lagging():
+            p2.append("Every limb is above its ideal lean target; the legs simply trail the arms, so giving them "
+                      "equal training priority keeps the build balanced.")
         paras.append(" ".join(p2))
 
         protein = self.protein_g()
