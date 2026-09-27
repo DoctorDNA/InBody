@@ -40,10 +40,14 @@ def _content_block(path: Path):
 
 def extract_scan(path, model=MODEL, client=None):
     """Send one InBody PDF/image to Claude and return the extracted scan dict."""
-    import anthropic
-
     path = Path(path)
-    client = client or anthropic.Anthropic()
+    if client is None:
+        try:
+            import anthropic
+        except ImportError:
+            raise RuntimeError("Reading with Claude needs the Anthropic package: "
+                               "pip install -r requirements-claude.txt")
+        client = anthropic.Anthropic()
     response = client.messages.create(
         model=model,
         max_tokens=16000,

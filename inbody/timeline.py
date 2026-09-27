@@ -171,7 +171,7 @@ def _parse_patient(nav_meta, hdr_sub):
     parts = [p.strip() for p in nav_meta.split("·")]
     if parts and parts[0] and not parts[0].upper().startswith("ID"):
         patient["name"] = parts[0]
-    m = re.search(r"\bID\s*[:#]?\s*([\w-]+)", nav_meta)
+    m = re.search(r"\bID\s*[:#]?\s*([^\s·|]+)", nav_meta)
     if m:
         patient["patient_id"] = m.group(1)
     m = re.search(r"(\d{1,3})\s*(?:yo|y/o|-year-old|years? old)?\s*(Male|Female)\b", hdr_sub, re.I)

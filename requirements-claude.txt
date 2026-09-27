@@ -1,2 +1,2 @@
 -r requirements.txt
-pytest
+anthropic>=0.60

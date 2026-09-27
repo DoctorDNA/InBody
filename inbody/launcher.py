@@ -4,7 +4,6 @@ Files dropped on the .bat arrive as arguments; anything missing is asked for wit
 The finished report opens in the default browser.
 """
 
-import os
 import sys
 import traceback
 import webbrowser
@@ -13,11 +12,6 @@ from pathlib import Path
 HISTORY_TYPES = {".html", ".htm"}
 SCAN_TYPES = [("InBody scan", "*.pdf *.png *.jpg *.jpeg *.webp"), ("All files", "*.*")]
 REPORT_TYPES = [("Previous InBody report", "*.html *.htm"), ("All files", "*.*")]
-
-
-def _key_file():
-    base = os.environ.get("APPDATA") or Path.home()
-    return Path(base) / "InBody" / "api_key.txt"
 
 
 def _writable(folder):
@@ -39,26 +33,6 @@ def reports_folder():
     raise OSError("No writable folder for reports")
 
 
-def _ensure_api_key(ask):
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return True
-    kf = _key_file()
-    if kf.exists():
-        key = kf.read_text(encoding="utf-8").strip()
-        if key:
-            os.environ["ANTHROPIC_API_KEY"] = key
-            return True
-    key = ask("Anthropic API key",
-              "Paste your Anthropic API key (starts with sk-ant-).\n"
-              "It is saved on this computer so you only enter it once.", show="*")
-    if not key:
-        return False
-    kf.parent.mkdir(parents=True, exist_ok=True)
-    kf.write_text(key.strip(), encoding="utf-8")
-    os.environ["ANTHROPIC_API_KEY"] = key.strip()
-    return True
-
-
 def _split(paths):
     """Previous reports (.html) vs new scans (PDF/pictures/JSON)."""
     history = [p for p in paths if p.suffix.lower() in HISTORY_TYPES]
@@ -68,14 +42,11 @@ def _split(paths):
 
 def main(argv=None):
     import tkinter as tk
-    from tkinter import filedialog, messagebox, simpledialog
+    from tkinter import filedialog, messagebox
 
     root = tk.Tk()
     root.withdraw()
     root.attributes("-topmost", True)
-
-    def ask(title, prompt, show=None):
-        return simpledialog.askstring(title, prompt, parent=root, show=show)
 
     reports_dir = reports_folder()
 
@@ -101,33 +72,29 @@ def main(argv=None):
         if not scans:
             return 0
 
-    needs_claude = any(p.suffix.lower() not in (".json",) for p in scans)
-    if needs_claude and not _ensure_api_key(ask):
-        messagebox.showinfo("InBody", "An API key is needed to read the scan.", parent=root)
-        return 1
-
     argv = ["analyze", *map(str, scans), "--out-dir", str(reports_dir)]
     for h in history:
         argv += ["--history", str(h)]
 
     from . import cli
-    print("Working… this usually takes under a minute per scan.\n")
+    print("Working… reading each scan takes about 10–20 seconds.\n")
+
     def confirm_mismatch(problem):
         return messagebox.askyesno("Different patient ID?", f"{problem}.\n\nAdd it to this report anyway?",
                                    parent=root)
 
+    def review(scan, problems, filename):
+        from .review_form import review as show_form
+        return show_form(root, scan, problems, filename)
+
     try:
-        out, warnings = cli.main(argv, confirm_mismatch=confirm_mismatch)
+        out, warnings = cli.main(argv, confirm_mismatch=confirm_mismatch, review=review)
     except SystemExit as e:  # cli reports problems via sys.exit
         messagebox.showerror("InBody", str(e.code), parent=root)
         return 1
     except Exception as e:
         traceback.print_exc()
-        msg = str(e)
-        if type(e).__name__ == "AuthenticationError":
-            _key_file().unlink(missing_ok=True)
-            msg = "The API key was rejected. Run again and paste a valid key."
-        messagebox.showerror("InBody", f"Something went wrong:\n\n{msg}", parent=root)
+        messagebox.showerror("InBody", f"Something went wrong:\n\n{e}", parent=root)
         return 1
 
     webbrowser.open(Path(out).resolve().as_uri())

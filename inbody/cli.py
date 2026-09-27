@@ -12,20 +12,30 @@ Examples:
 """
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
 from . import extract, report, timeline as tl
 
 
-def _load_input(path, model):
+def read_sheet(path, reader="local", model=extract.MODEL):
+    """One InBody sheet (PDF/picture) → scan dict, read locally or by Claude."""
+    path = Path(path)
+    if reader == "claude":
+        print(f"Reading {path.name} with Claude…", file=sys.stderr)
+        return extract.extract_scan(path, model=model)
+    from . import ocr_reader
+    print(f"Reading {path.name} on this computer…", file=sys.stderr)
+    return ocr_reader.read_scan(path)
+
+
+def _load_input(path, args):
     """A scan file becomes a timeline with one scan; JSON/HTML are loaded as timelines."""
     path = Path(path)
-    suffix = path.suffix.lower()
-    if suffix in (".html", ".htm", ".json"):
+    if path.suffix.lower() in (".html", ".htm", ".json"):
         return tl.load_history(path)
-    print(f"Reading {path.name} with Claude…", file=sys.stderr)
-    scan = extract.extract_scan(path, model=model)
+    scan = read_sheet(path, args.reader, args.model)
     return {"version": 1, "patient": {}, "scans": [scan]}
 
 
@@ -49,7 +59,8 @@ def _write_outputs(timeline, out_html, out_json, ai, model):
 
 def _default_out(timeline, out_dir="reports"):
     p = timeline.get("patient", {})
-    slug = (p.get("name") or p.get("patient_id") or "patient").strip().lower().replace(" ", "_")
+    slug = (p.get("name") or p.get("patient_id") or "patient").strip().lower()
+    slug = re.sub(r"[^\w-]+", "_", slug).strip("_") or "patient"  # e.g. "405408***2" is not a valid filename
     last = timeline["scans"][-1]["test_date"]
     return Path(out_dir) / f"inbody_{slug}_{last}.html"
 
@@ -62,9 +73,17 @@ def cmd_analyze(args):
 
     warnings = []
     for f in args.scans:
-        new = _load_input(f, args.model)
-        for scan in new["scans"]:
-            for w in extract.validate_scan(scan):
+        new = _load_input(f, args)
+        for i, scan in enumerate(new["scans"]):
+            problems = extract.validate_scan(scan)
+            review = getattr(args, "review", None)
+            if problems and review and Path(f).suffix.lower() not in (".html", ".htm", ".json"):
+                scan = review(scan, problems, Path(f).name)
+                if scan is None:
+                    sys.exit("Cancelled.")
+                new["scans"][i] = scan
+                problems = extract.validate_scan(scan)
+            for w in problems:
                 warnings.append(f"{Path(f).name}: {w}")
                 print(f"  ⚠ {Path(f).name}: {w}", file=sys.stderr)
             try:
@@ -96,7 +115,7 @@ def cmd_render(args):
 
 def cmd_extract(args):
     """Extract one scan to JSON without building a report (for review/correction)."""
-    scan = extract.extract_scan(args.scan, model=args.model)
+    scan = read_sheet(args.scan, args.reader, args.model)
     for w in extract.validate_scan(scan):
         print(f"  ⚠ {w}", file=sys.stderr)
     out = Path(args.output) if args.output else Path(args.scan).with_suffix(".json")
@@ -124,10 +143,16 @@ def _common(sp):
     sp.add_argument("--age", type=int)
     sp.add_argument("--height")
     sp.add_argument("--ai-summary", action="store_true", help="Have Claude write the Summary section")
-    sp.add_argument("--model", default=extract.MODEL, help=f"Claude model (default {extract.MODEL})")
+    _reader_args(sp)
 
 
-def main(argv=None, confirm_mismatch=None):
+def _reader_args(sp):
+    sp.add_argument("--reader", choices=["local", "claude"], default="local",
+                    help="How to read PDFs: 'local' (on this computer, default) or 'claude' (Anthropic API)")
+    sp.add_argument("--model", default=extract.MODEL, help=f"Claude model for --reader claude (default {extract.MODEL})")
+
+
+def main(argv=None, confirm_mismatch=None, review=None):
     ap = argparse.ArgumentParser(prog="inbody", description="InBody longitudinal analysis & HTML reports")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -148,11 +173,12 @@ def main(argv=None, confirm_mismatch=None):
     e = sub.add_parser("extract", help="Extract one sheet to JSON only")
     e.add_argument("scan")
     e.add_argument("-o", "--output")
-    e.add_argument("--model", default=extract.MODEL)
+    _reader_args(e)
     e.set_defaults(func=cmd_extract)
 
     args = ap.parse_args(argv)
     args.confirm_mismatch = confirm_mismatch
+    args.review = review
     return args.func(args)
 
 

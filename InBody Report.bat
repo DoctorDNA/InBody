@@ -25,15 +25,16 @@ if not defined PY (
     exit /b 1
 )
 
-rem ---- first run: private environment + packages (in %LOCALAPPDATA%\InBody) ----
-if not exist "%VENV%\setup-done.txt" (
-    echo First-time setup, this takes a minute...
+rem ---- setup (first run, or after an update changes requirements.txt) ---------
+fc /b "requirements.txt" "%VENV%\requirements.txt" >nul 2>nul
+if errorlevel 1 (
+    echo Setting up, this can take a few minutes the first time...
     if not exist "%VPY%" (
         %PY% -m venv "%VENV%" || goto :fail
     )
     "%VPY%" -m pip install --quiet --upgrade pip
-    "%VPY%" -m pip install --quiet -r requirements.txt || goto :fail
-    echo ok> "%VENV%\setup-done.txt"
+    "%VPY%" -m pip install --quiet --prefer-binary -r requirements.txt || goto :fail
+    copy /y "requirements.txt" "%VENV%\requirements.txt" >nul
     echo Setup complete.
     echo.
 )
