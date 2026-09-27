@@ -28,6 +28,18 @@ def fmt(v, digits=1):
     return f"{v:,.{digits}f}"
 
 
+MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
+
+
+def md(d):
+    """'Sep 5' — portable (strftime's %-d fails on Windows)."""
+    return f"{MONTHS[d.month - 1]} {d.day}"
+
+
+def mdy(d):
+    return f"{md(d)}, {d.year}"
+
+
 def signed(v, digits=1):
     if v is None:
         return "—"
@@ -139,8 +151,8 @@ class Analysis:
     def next_scan_text(self):
         start, end = self.next_scan_window()
         if self.scan_overdue():
-            return f"a follow-up scan is overdue — schedule it between {start:%b %-d} and {end:%b %-d, %Y}"
-        return f"between {start:%b %-d} and {end:%b %-d, %Y} (6–8 weeks after the latest scan)"
+            return f"a follow-up scan is overdue — schedule it between {md(start)} and {mdy(end)}"
+        return f"between {md(start)} and {mdy(end)} (6–8 weeks after the latest scan)"
 
     def smm_trajectory(self):
         vals = [x for x in self.series("smm") if x is not None]
@@ -533,7 +545,7 @@ class Analysis:
 
         protein = self.protein_g()
         start, end = self.next_scan_window()
-        when = f"{start:%b %-d} and {end:%b %-d}"
+        when = f"{md(start)} and {md(end)}"
         traj = self.smm_trajectory()
         focus = {"improving": "keep the resistance training that is clearly working",
                  "plateau": "push the resistance training stimulus a step further to restart muscle gain",

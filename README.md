@@ -14,7 +14,22 @@ running timeline for each patient.
   report *is* the history for the next one. Reports made earlier by the InBody skill in chat work too:
   their tables are parsed back into scans.
 
-## Setup
+## Windows: double-click
+
+1. Install Python from [python.org](https://www.python.org/downloads/windows/) and tick **"Add python.exe to PATH"** (one time).
+2. Unzip this folder anywhere and double-click **`InBody Report.bat`**.
+   - The first run takes about a minute to set up.
+   - It asks for your Anthropic API key once and saves it in `%APPDATA%\InBody\api_key.txt`.
+3. Choose the new InBody PDF, or a photo of the sheet.
+4. When it asks "Does this patient already have an InBody report?":
+   - **Yes:** choose their last report. The new scan is added and the new report covers every visit.
+   - **No:** type the patient's name.
+5. The report opens in your browser and is saved in the `reports` folder next to the `.bat`.
+
+You can also drag PDFs onto `InBody Report.bat`, optionally together with the patient's last report.
+If Claude has to guess at a value, a pop-up lists it so you can check it against the sheet.
+
+## Command line setup
 
 ```bash
 pip install -r requirements.txt
@@ -66,5 +81,6 @@ PDF, it is sent to the Anthropic API to be read.
 | `inbody/analysis.py` | Deltas, clinical thresholds, findings, recommendations, summary |
 | `inbody/report.py` | HTML/CSS/SVG rendering (skill design system) |
 | `inbody/narrative.py` | Optional Claude-written summary |
+| `inbody/launcher.py`, `InBody Report.bat` | Double-click Windows front end (file pickers, opens the report) |
 | `examples/` | Sample data for a fictional patient |
 | `tests/` | `python -m pytest` |

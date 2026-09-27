@@ -44,6 +44,7 @@ def _write_outputs(timeline, out_html, out_json, ai, model):
     print(f"Report:   {out_html}")
     if out_json:
         print(f"Timeline: {out_json}")
+    return out_html
 
 
 def _default_out(timeline):
@@ -59,10 +60,12 @@ def cmd_analyze(args):
         tl.merge_timelines(timeline, tl.load_history(h), args.force)
         print(f"History:  {h} → {len(timeline['scans'])} scan(s)", file=sys.stderr)
 
+    warnings = []
     for f in args.scans:
         new = _load_input(f, args.model)
         for scan in new["scans"]:
             for w in extract.validate_scan(scan):
+                warnings.append(f"{Path(f).name}: {w}")
                 print(f"  ⚠ {Path(f).name}: {w}", file=sys.stderr)
             try:
                 status = tl.add_scan(timeline, scan, args.force)
@@ -78,14 +81,14 @@ def cmd_analyze(args):
         sys.exit("No scans to analyze.")
     out_html = Path(args.output) if args.output else _default_out(timeline)
     out_json = Path(args.timeline) if args.timeline else out_html.with_suffix(".json")
-    _write_outputs(timeline, out_html, out_json, args.ai_summary, args.model)
+    return _write_outputs(timeline, out_html, out_json, args.ai_summary, args.model), warnings
 
 
 def cmd_render(args):
     timeline = tl.load_history(args.source)
     _apply_overrides(timeline, args)
     out_html = Path(args.output) if args.output else _default_out(timeline)
-    _write_outputs(timeline, out_html, None, args.ai_summary, args.model)
+    return _write_outputs(timeline, out_html, None, args.ai_summary, args.model), []
 
 
 def cmd_extract(args):
@@ -145,7 +148,7 @@ def main(argv=None):
     e.set_defaults(func=cmd_extract)
 
     args = ap.parse_args(argv)
-    args.func(args)
+    return args.func(args)
 
 
 if __name__ == "__main__":

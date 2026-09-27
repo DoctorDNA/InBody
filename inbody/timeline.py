@@ -38,14 +38,14 @@ def short_date(iso):
 # ---------------------------------------------------------------- JSON I/O
 
 def load_json(path):
-    data = json.loads(Path(path).read_text())
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
     if "scans" not in data:  # a single scan JSON
         return {"version": 1, "patient": {}, "scans": [data]}
     return data
 
 
 def save_json(timeline, path):
-    Path(path).write_text(json.dumps(timeline, indent=2) + "\n")
+    Path(path).write_text(json.dumps(timeline, indent=2) + "\n", encoding="utf-8")
 
 
 # ---------------------------------------------------------------- HTML history
