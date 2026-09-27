@@ -1,0 +1,173 @@
+{
+  "version": 1,
+  "patient": {
+    "name": "Sample Patient",
+    "patient_id": "DEMO-001",
+    "sex": "Male",
+    "height": "5ft 10.0in",
+    "age": 58,
+    "device": "InBody 380"
+  },
+  "scans": [
+    {
+      "patient_id": "DEMO-001",
+      "name": null,
+      "height": "5ft 10.0in",
+      "age": 58,
+      "sex": "Male",
+      "test_date": "2025-09-05",
+      "test_time": "08:05",
+      "device": "InBody 380",
+      "weight": 195.4,
+      "icw": 66.7,
+      "ecw": 41.2,
+      "tbw": 107.9,
+      "dry_lean_mass": 39.3,
+      "ffm": 147.2,
+      "bfm": 48.2,
+      "smm": 82.1,
+      "bmi": 28.0,
+      "pbf": 24.7,
+      "ecw_tbw": 0.382,
+      "phase_angle": 5.9,
+      "inbody_score": 74,
+      "smi": 10.4,
+      "vfl": 11,
+      "bmr": 1778,
+      "arm_circumference": 13.4,
+      "ffmi": 21.1,
+      "fmi": 6.9,
+      "smm_wt": 42.0,
+      "weight_range": "136.2~184.2",
+      "tbw_range": "94.6~115.6",
+      "ffm_range": "121.7~148.8",
+      "bmr_range": "1690~2003",
+      "segmental_lean": {
+        "right_arm": {
+          "lb": 8.4,
+          "pct": 104.1
+        },
+        "left_arm": {
+          "lb": 8.3,
+          "pct": 102.7
+        },
+        "trunk": {
+          "lb": 62.1,
+          "pct": 101.2
+        },
+        "right_leg": {
+          "lb": 20.1,
+          "pct": 97.6
+        },
+        "left_leg": {
+          "lb": 19.9,
+          "pct": 96.6
+        }
+      },
+      "segmental_fat": {
+        "right_arm": {
+          "lb": 2.6,
+          "pct": 180.0
+        },
+        "left_arm": {
+          "lb": 2.7,
+          "pct": 185.0
+        },
+        "trunk": {
+          "lb": 25.1,
+          "pct": 250.0
+        },
+        "right_leg": {
+          "lb": 5.1,
+          "pct": 150.0
+        },
+        "left_leg": {
+          "lb": 5.1,
+          "pct": 150.0
+        }
+      },
+      "extraction_notes": [],
+      "source_file": "sample"
+    },
+    {
+      "patient_id": "DEMO-001",
+      "name": null,
+      "height": "5ft 10.0in",
+      "age": 58,
+      "sex": "Male",
+      "test_date": "2025-10-20",
+      "test_time": "08:05",
+      "device": "InBody 380",
+      "weight": 193.8,
+      "icw": 67.5,
+      "ecw": 41.5,
+      "tbw": 109.0,
+      "dry_lean_mass": 39.7,
+      "ffm": 148.7,
+      "bfm": 45.1,
+      "smm": 83.0,
+      "bmi": 27.8,
+      "pbf": 23.3,
+      "ecw_tbw": 0.381,
+      "phase_angle": 6.0,
+      "inbody_score": 77,
+      "smi": 10.5,
+      "vfl": 10,
+      "bmr": 1797,
+      "arm_circumference": 13.4,
+      "ffmi": 21.3,
+      "fmi": 6.5,
+      "smm_wt": 42.8,
+      "weight_range": "136.2~184.2",
+      "tbw_range": "94.6~115.6",
+      "ffm_range": "121.7~148.8",
+      "bmr_range": "1690~2003",
+      "segmental_lean": {
+        "right_arm": {
+          "lb": 8.4,
+          "pct": 104.1
+        },
+        "left_arm": {
+          "lb": 8.3,
+          "pct": 102.7
+        },
+        "trunk": {
+          "lb": 62.1,
+          "pct": 101.2
+        },
+        "right_leg": {
+          "lb": 20.4,
+          "pct": 99.0
+        },
+        "left_leg": {
+          "lb": 20.2,
+          "pct": 98.1
+        }
+      },
+      "segmental_fat": {
+        "right_arm": {
+          "lb": 2.6,
+          "pct": 180.0
+        },
+        "left_arm": {
+          "lb": 2.7,
+          "pct": 185.0
+        },
+        "trunk": {
+          "lb": 23.5,
+          "pct": 250.0
+        },
+        "right_leg": {
+          "lb": 5.1,
+          "pct": 150.0
+        },
+        "left_leg": {
+          "lb": 5.1,
+          "pct": 150.0
+        }
+      },
+      "extraction_notes": [],
+      "source_file": "sample"
+    }
+  ]
+}
