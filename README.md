@@ -23,8 +23,13 @@ running timeline for each patient.
 2. Unzip this folder anywhere and double-click **`InBody Report.bat`**.
    - The first run takes a few minutes to set up and needs internet. After that it works offline.
 3. **Step 1:** choose the patient's previous InBody report (`.html`). This can be a report from this
-   program or one the InBody skill made in chat. Press **Cancel** if it's the patient's first scan.
-4. **Step 2:** choose the new InBody PDF, or a photo of the sheet.
+   program or one the InBody skill made in chat. Press **Cancel** to start a new report from PDFs only.
+4. **Step 2:** choose the new InBody PDF(s). Hold **Ctrl** to select several; they're put in date order
+   automatically.
+
+**Typical use:** start a patient's first report from their first 2–3 PDFs (Cancel in Step 1, select all
+the PDFs in Step 2). At each visit after that, choose the last report in Step 1 and the new PDF in Step 2.
+The new report includes every scan so far.
 5. The report opens in your browser and is saved in the `reports` folder next to the `.bat`.
    If Windows won't allow writing there, it goes to `InBody Reports` in your user folder instead,
    and the pop-up shows exactly where.

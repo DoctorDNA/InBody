@@ -112,3 +112,24 @@ def test_reports_fall_back_when_program_folder_is_read_only(fake_tk, tmp_path, m
     assert launcher.main([str(EX / "sample_new_scan.json")]) == 0
     assert list((home / "InBody Reports").glob("*.html"))
     assert str(home / "InBody Reports") in shown[-1][1]
+
+
+def test_new_report_from_several_scans_then_follow_up(fake_tk, tmp_path):
+    """Cancel step 1, pick two scans → new report; next visit: that report + one new scan."""
+    from inbody import launcher
+    state, shown, opened = fake_tk
+    base = json.loads((EX / "sample_new_scan.json").read_text())
+    files = []
+    for d in ("2026-03-01", "2026-01-14", "2026-04-20"):
+        f = tmp_path / f"{d}.json"
+        f.write_text(json.dumps({**base, "test_date": d}))
+        files.append(str(f))
+    state["pickers"] = ["", (files[0], files[1])]  # picked out of date order
+    assert launcher.main([]) == 0
+    first = tmp_path / "reports" / "inbody_demo-001_2026-03-01.html"
+    assert "2 scans" in first.read_text(encoding="utf-8")
+
+    state["pickers"] = [(str(first),), (files[2],)]
+    assert launcher.main([]) == 0
+    html = (tmp_path / "reports" / "inbody_demo-001_2026-04-20.html").read_text(encoding="utf-8")
+    assert "3 scans" in html and html.index("1/14/26") < html.index("3/1/26") < html.index("4/20/26")

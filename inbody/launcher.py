@@ -56,7 +56,7 @@ def main(argv=None):
     # Step 1: the previous report. Cancel = no previous report (first scan).
     if not history:
         picked = filedialog.askopenfilenames(
-            parent=root, title="Step 1 of 2: choose the PREVIOUS InBody report (.html) — Cancel if there is none",
+            parent=root, title="Step 1 of 2: choose the PREVIOUS InBody report (.html) — Cancel to start a new report from PDFs",
             filetypes=REPORT_TYPES)
         more_history, more_scans = _split([Path(p) for p in picked])
         history += more_history
@@ -65,7 +65,7 @@ def main(argv=None):
     # Step 2: the new InBody PDF.
     if not scans:
         picked = filedialog.askopenfilenames(
-            parent=root, title="Step 2 of 2: choose the NEW InBody report (PDF)", filetypes=SCAN_TYPES)
+            parent=root, title="Step 2 of 2: choose the NEW InBody PDF(s) — hold Ctrl to select several", filetypes=SCAN_TYPES)
         more_history, more_scans = _split([Path(p) for p in picked])
         history += more_history
         scans += more_scans
@@ -77,7 +77,8 @@ def main(argv=None):
         argv += ["--history", str(h)]
 
     from . import cli
-    print("Working… reading each scan takes about 10–20 seconds.\n")
+    n = sum(1 for p in scans if p.suffix.lower() not in (".json",))
+    print(f"Reading {n} scan{'s' if n != 1 else ''}… about 10–20 seconds each.\n")
 
     def confirm_mismatch(problem):
         return messagebox.askyesno("Different patient ID?", f"{problem}.\n\nAdd it to this report anyway?",
