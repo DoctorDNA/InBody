@@ -70,7 +70,10 @@ def cmd_analyze(args):
             try:
                 status = tl.add_scan(timeline, scan, args.force)
             except tl.PatientMismatch as e:
-                sys.exit(f"{e}. Use --force if this is really the same patient.")
+                confirm = getattr(args, "confirm_mismatch", None)
+                if not (confirm and confirm(str(e))):
+                    sys.exit(f"{e}. Use --force if this is really the same patient.")
+                status = tl.add_scan(timeline, scan, allow_mismatch=True)
             print(f"Scan {scan.get('test_date')}: {status}", file=sys.stderr)
         for k, v in (new.get("patient") or {}).items():
             if v and not timeline["patient"].get(k):
@@ -124,7 +127,7 @@ def _common(sp):
     sp.add_argument("--model", default=extract.MODEL, help=f"Claude model (default {extract.MODEL})")
 
 
-def main(argv=None):
+def main(argv=None, confirm_mismatch=None):
     ap = argparse.ArgumentParser(prog="inbody", description="InBody longitudinal analysis & HTML reports")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -149,6 +152,7 @@ def main(argv=None):
     e.set_defaults(func=cmd_extract)
 
     args = ap.parse_args(argv)
+    args.confirm_mismatch = confirm_mismatch
     return args.func(args)
 
 

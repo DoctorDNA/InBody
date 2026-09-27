@@ -20,10 +20,9 @@ running timeline for each patient.
 2. Unzip this folder anywhere and double-click **`InBody Report.bat`**.
    - The first run takes about a minute to set up.
    - It asks for your Anthropic API key once and saves it in `%APPDATA%\InBody\api_key.txt`.
-3. Choose the new InBody PDF, or a photo of the sheet.
-4. When it asks "Does this patient already have an InBody report?":
-   - **Yes:** choose their last report. The new scan is added and the new report covers every visit.
-   - **No:** type the patient's name.
+3. **Step 1:** choose the patient's previous InBody report (`.html`). This can be a report from this
+   program or one the InBody skill made in chat. Press **Cancel** if it's the patient's first scan.
+4. **Step 2:** choose the new InBody PDF, or a photo of the sheet.
 5. The report opens in your browser and is saved in the `reports` folder next to the `.bat`.
    If Windows won't allow writing there, it goes to `InBody Reports` in your user folder instead,
    and the pop-up shows exactly where.
@@ -31,7 +30,9 @@ running timeline for each patient.
 The Python setup lives in `%LOCALAPPDATA%\InBody\venv`, not in the program folder, so the program can
 sit on any drive, including protected or synced folders. To reset it, delete that folder.
 
-You can also drag PDFs onto `InBody Report.bat`, optionally together with the patient's last report.
+You can also select both files at once in Step 1 (hold Ctrl), or drag the HTML and the PDF onto
+`InBody Report.bat` together to skip the pickers. There are no other questions. The only exception is
+when the PDF's patient ID differs from the old report's, in which case it asks before combining them.
 If Claude has to guess at a value, a pop-up lists it so you can check it against the sheet.
 
 ## Command line setup

@@ -12,7 +12,7 @@ from pathlib import Path
 
 HISTORY_TYPES = {".html", ".htm"}
 SCAN_TYPES = [("InBody scan", "*.pdf *.png *.jpg *.jpeg *.webp"), ("All files", "*.*")]
-REPORT_TYPES = [("InBody report or timeline", "*.html *.htm *.json"), ("All files", "*.*")]
+REPORT_TYPES = [("Previous InBody report", "*.html *.htm"), ("All files", "*.*")]
 
 
 def _key_file():
@@ -59,6 +59,13 @@ def _ensure_api_key(ask):
     return True
 
 
+def _split(paths):
+    """Previous reports (.html) vs new scans (PDF/pictures/JSON)."""
+    history = [p for p in paths if p.suffix.lower() in HISTORY_TYPES]
+    scans = [p for p in paths if p.suffix.lower() not in HISTORY_TYPES]
+    return history, scans
+
+
 def main(argv=None):
     import tkinter as tk
     from tkinter import filedialog, messagebox, simpledialog
@@ -73,34 +80,26 @@ def main(argv=None):
     reports_dir = reports_folder()
 
     dropped = [Path(a) for a in (argv if argv is not None else sys.argv[1:])]
-    history = [p for p in dropped if p.suffix.lower() in HISTORY_TYPES]
-    scans = [p for p in dropped if p.suffix.lower() not in HISTORY_TYPES]
+    history, scans = _split(dropped)
 
+    # Step 1: the previous report. Cancel = no previous report (first scan).
+    if not history:
+        picked = filedialog.askopenfilenames(
+            parent=root, title="Step 1 of 2: choose the PREVIOUS InBody report (.html) — Cancel if there is none",
+            filetypes=REPORT_TYPES)
+        more_history, more_scans = _split([Path(p) for p in picked])
+        history += more_history
+        scans += more_scans
+
+    # Step 2: the new InBody PDF.
     if not scans:
-        picked = filedialog.askopenfilenames(parent=root, title="Choose the new InBody scan (PDF or picture)",
-                                             filetypes=SCAN_TYPES)
-        scans = [Path(p) for p in picked]
+        picked = filedialog.askopenfilenames(
+            parent=root, title="Step 2 of 2: choose the NEW InBody report (PDF)", filetypes=SCAN_TYPES)
+        more_history, more_scans = _split([Path(p) for p in picked])
+        history += more_history
+        scans += more_scans
         if not scans:
             return 0
-
-    name = None
-    if not history:
-        answer = messagebox.askyesnocancel(
-            "Previous report?",
-            "Does this patient already have an InBody report?\n\n"
-            "Yes — choose their most recent report and the new scan will be added to it.\n"
-            "No — this is the patient's first scan.",
-            parent=root)
-        if answer is None:
-            return 0
-        if answer:
-            picked = filedialog.askopenfilename(parent=root, title="Choose the patient's most recent InBody report",
-                                                initialdir=str(reports_dir), filetypes=REPORT_TYPES)
-            if not picked:
-                return 0
-            history = [Path(picked)]
-        else:
-            name = ask("Patient name", "Patient name for the report (optional):")
 
     needs_claude = any(p.suffix.lower() not in (".json",) for p in scans)
     if needs_claude and not _ensure_api_key(ask):
@@ -110,14 +109,16 @@ def main(argv=None):
     argv = ["analyze", *map(str, scans), "--out-dir", str(reports_dir)]
     for h in history:
         argv += ["--history", str(h)]
-    if name:
-        argv += ["--name", name]
 
     from . import cli
     print("Working… this usually takes under a minute per scan.\n")
+    def confirm_mismatch(problem):
+        return messagebox.askyesno("Different patient ID?", f"{problem}.\n\nAdd it to this report anyway?",
+                                   parent=root)
+
     try:
-        out, warnings = cli.main(argv)
-    except SystemExit as e:  # cli reports problems (e.g. patient ID mismatch) via sys.exit
+        out, warnings = cli.main(argv, confirm_mismatch=confirm_mismatch)
+    except SystemExit as e:  # cli reports problems via sys.exit
         messagebox.showerror("InBody", str(e.code), parent=root)
         return 1
     except Exception as e:
