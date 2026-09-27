@@ -131,5 +131,7 @@ def test_new_report_from_several_scans_then_follow_up(fake_tk, tmp_path):
 
     state["pickers"] = [(str(first),), (files[2],)]
     assert launcher.main([]) == 0
-    html = (tmp_path / "reports" / "inbody_demo-001_2026-04-20.html").read_text(encoding="utf-8")
-    assert "3 scans" in html and html.index("1/14/26") < html.index("3/1/26") < html.index("4/20/26")
+    from inbody.timeline import load_html
+    latest = tmp_path / "reports" / "inbody_demo-001_2026-04-20.html"
+    assert "3 scans" in latest.read_text(encoding="utf-8")
+    assert [s["test_date"] for s in load_html(latest)["scans"]] == ["2026-01-14", "2026-03-01", "2026-04-20"]
