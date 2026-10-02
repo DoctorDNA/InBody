@@ -22,6 +22,8 @@ running timeline for each patient.
 1. Install Python from [python.org](https://www.python.org/downloads/windows/) and tick **"Add python.exe to PATH"** (one time).
 2. Unzip this folder anywhere and double-click **`InBody Report.bat`**.
    - The first run takes a few minutes to set up and needs internet. After that it works offline.
+   - It also puts an **InBody Report** shortcut on your desktop. Use that from then on.
+     If you delete the shortcut, it won't come back unless you move the program folder.
 3. **Step 1:** choose the patient's previous InBody report (`.html`). This can be a report from this
    program or one the InBody skill made in chat. Press **Cancel** to start a new report from PDFs only.
 4. **Step 2:** choose the new InBody PDF(s). Hold **Ctrl** to select several; they're put in date order

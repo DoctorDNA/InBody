@@ -39,6 +39,22 @@ if errorlevel 1 (
     echo.
 )
 
+rem ---- desktop shortcut: made once, and re-pointed if this folder moves -----------
+set "SCMARK=%LOCALAPPDATA%\InBody\shortcut-for.txt"
+set "SCFOR="
+if exist "%SCMARK%" set /p SCFOR=<"%SCMARK%"
+if /i not "%SCFOR%"=="%~dp0" (
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+      "$here=(Get-Location).Path; $lnk=Join-Path ([Environment]::GetFolderPath('Desktop')) 'InBody Report.lnk';" ^
+      "$s=(New-Object -ComObject WScript.Shell).CreateShortcut($lnk); $s.TargetPath=Join-Path $here 'InBody Report.bat';" ^
+      "$s.WorkingDirectory=$here; $s.IconLocation=(Join-Path $here 'inbody.ico')+',0'; $s.Description='Make an InBody report'; $s.Save();" ^
+      "Set-Content -Path $env:SCMARK -Value ($here.TrimEnd('\')+'\') -Encoding ASCII" ^
+      >nul 2>nul && (
+        echo An "InBody Report" shortcut was added to your desktop.
+        echo.
+    )
+)
+
 "%VPY%" -m inbody.launcher %*
 if errorlevel 1 goto :fail
 exit /b 0
